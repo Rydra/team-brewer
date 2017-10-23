@@ -1,0 +1,17 @@
+last_alone:María
+Ignasi,Rute
+Ignasi,Marta
+Ignasi,María
+Ignasi,David
+María,Ignasi
+María,Rute
+María,David
+David,Ignasi
+David,Rute
+David,María
+David,Marta
+Rute,Ignasi
+Rute,María
+Rute,David
+Marta,Ignasi
+Marta,David

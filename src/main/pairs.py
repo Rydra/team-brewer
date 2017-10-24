@@ -1,10 +1,14 @@
 import argparse
+import datetime
 import os
 import random
 from collections import defaultdict
 
+from slackclient import SlackClient
 # NOTE: THIS IS A FREAKING GRAPH!!
 import re
+
+import requests
 
 
 def load_already_generated_pairs(lines):
@@ -114,16 +118,30 @@ if __name__ == '__main__':
             new_last_alone = last_pair[0]
             pairs.remove(last_pair)
 
-        content = 'Today should have a breakfast together:\n'
+        content = f"Hi buttoners, how's it going? These are the dates that have been arranged for this week (starting at {datetime.datetime.now().strftime('%Y-%m-%d')}) \n"
         for mate1, mate2 in pairs:
             content += f'{mate1} with {mate2}\n'
 
         content += '\n'
 
+        # TODO: Instead of being alone, someone will have two dates
         if new_last_alone:
-            content += f'{new_last_alone}, you will rest for today, next day you will have a date for sure :D'
+            content += f'{new_last_alone}, you will rest for this week, next week you will have a date for sure :D'
 
         print(content)
+
+        # Slack test
+        # https://api.slack.com/methods/chat.postMessage#channels
+
+        slack_token = os.environ["SLACK_API_TOKEN"]
+        sc = SlackClient(slack_token)
+
+        sc.api_call(
+            "chat.postMessage",
+            channel="#team-brewer",
+            text=f"@everyone\n```{content}```",
+            as_user=True
+        )
 
         if new_last_alone:
             outputfs.write(f'last_alone:{new_last_alone}\n')

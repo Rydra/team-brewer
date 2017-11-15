@@ -126,6 +126,16 @@ def get_history_of_dates(filename):
     return history_dates_per_user, last_alone_person
 
 
+def get_last_rotation(filename):
+    rotation = None
+
+    if os.path.exists(filename):
+        with open(filename, "r", encoding="utf-8") as outputfs:
+            rotation = [x.strip() for x in outputfs.readlines() if x]
+
+    return rotation
+
+
 def notify_slack(message):
     slack_token = os.environ["SLACK_API_TOKEN"]
     sc = SlackClient(slack_token)
@@ -137,8 +147,26 @@ def notify_slack(message):
         as_user=True
     )
 
+# Check https://stackoverflow.com/a/40161918/2316068
+def generate_next_dates(people):
+    if len(people) % 2:
+        people.append('Day off')  # if team number is odd - use 'day off' as fake team
 
-def generate_matches_message(pairs, lone_wolf):
+    rotation = list(people)       # copy the list
+
+    rotation = [rotation[0]] + [rotation[-1]] + rotation[1:-1]
+
+    # This is where the difference is.
+    # I implemented "rainbow" style pairing from each fixture f
+    # In other words:
+    # [(f[0],[f[n-1]), (f[1],f[n-2]), ..., (f[n/2-1],f[n/2])],
+    # where n is the length of f
+    n = len(rotation)
+    result = list(zip(rotation[0:int(n / 2)], reversed(rotation[int(n / 2):n])))
+
+    return result, rotation
+
+def generate_matches_message(pairs, lone_wolf=None):
     content = f"Hi buttoners, how's it going? These are the dates that have been arranged " \
               f"for this week (starting at {datetime.datetime.now().strftime('%Y-%m-%d')}) \n"
 
@@ -159,6 +187,49 @@ def generate_matches_message(pairs, lone_wolf):
 
     return content
 
+def main2():
+    parser = argparse.ArgumentParser(description='Parse arguments for debugging purposes')
+    parser.add_argument('inputfilename', help='the path to the list of names')
+    parser.add_argument('outputfilename', help='the file to store the pairs that have been already generated')
+    parser.add_argument('--speeddater', type=str, help='Prepare this person for some speed dates')
+
+    parsed_arguments = parser.parse_args()
+
+    abspath = os.path.abspath(__file__)
+    dname = os.path.dirname(abspath)
+
+    inputfilename = os.path.join(dname, parsed_arguments.inputfilename)
+    outputfilename = os.path.join(dname, parsed_arguments.outputfilename)
+
+    people = get_people(inputfilename)
+    last_rotation = get_last_rotation(outputfilename)
+
+    if not last_rotation:
+        random.shuffle(people)
+        last_rotation = people
+
+    new_people = set(people) - set(last_rotation)
+    for new_person in new_people:
+        last_rotation.insert(random.randrange(len(last_rotation)+1), new_person)
+
+    people_leaving = set(last_rotation) - set(people)
+    for person_leaving in people_leaving:
+        last_rotation.remove(person_leaving)
+
+    pairs, last_rotation = generate_next_dates(last_rotation)
+
+    random.shuffle(pairs)
+    content = generate_matches_message(pairs)
+
+    print(content)
+
+    # Slack test
+    # https://api.slack.com/methods/chat.postMessage#channels
+    # notify_slack(content)
+
+    with open(outputfilename, "w", encoding="utf-8") as outputfs:
+        for person in last_rotation:
+                outputfs.write(f'{person}\n')
 
 def main():
     parser = argparse.ArgumentParser(description='Parse arguments for debugging purposes')
@@ -176,6 +247,7 @@ def main():
     speed_dater = parsed_arguments.speeddater
 
     people = get_people(inputfilename)
+    random.shuffle(people)
 
     # The last alone person is the person we are going to prioritize
     history_dates_per_user, last_alone_person = get_history_of_dates(outputfilename)
@@ -195,6 +267,8 @@ def main():
                                                         history_dates_per_user)
         pairs.extend(pairs_speeddate)
 
+    matches = generate_next_dates(people)
+
     pairs_2, lone_wolf = generate_pairs(people_queue,
                                         history_dates_per_user,
                                         last_alone_person,
@@ -208,7 +282,7 @@ def main():
 
     # Slack test
     # https://api.slack.com/methods/chat.postMessage#channels
-    notify_slack(content)
+    # notify_slack(content)
 
     with open(outputfilename, "w", encoding="utf-8") as outputfs:
         if lone_wolf:
@@ -220,4 +294,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main2()

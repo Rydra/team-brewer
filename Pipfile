@@ -1,0 +1,20 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+slackclient = "*"
+
+
+[dev-packages]
+
+pytest = "*"
+pytest-testmon = "*"
+pytest-watch = "*"
+pytest-pythonpath = "*"
+pytest-datadir = "*"
+pytest-mock = "*"

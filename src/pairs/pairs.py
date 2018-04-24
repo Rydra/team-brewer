@@ -19,16 +19,18 @@ def generate_matches_functional_version():
 
         person = available_people.pop()
         previous_matches = MatchRepository.instance().find_all_matches(person)
-        already_met_people = set(match.person1 if match.person1 != person else match.person2 for match in previous_matches)
+        already_met_people = set(
+            match.person1 if match.person1 != person else match.person2 for match in previous_matches)
         candidates = set(available_people - already_met_people)
 
         if not candidates:
-            match = find_match_with_partner_not_in_history(found_matches, already_met_people)
+            match = _find_match_with_partner_not_in_history(found_matches, already_met_people)
             if not match:
                 return generate_matches_rec(available_people, found_matches)
 
             found_matches.remove(match)
-            new_partner, next_candidate = (match.person1, match.person2) if match.person1 not in already_met_people else (match.person2, match.person1)
+            new_partner, next_candidate = (
+            match.person1, match.person2) if match.person1 not in already_met_people else (match.person2, match.person1)
 
             return generate_matches_rec(available_people | next_candidate, found_matches + [Match(person, new_partner)])
 
@@ -52,12 +54,12 @@ def generate_matches():
     matches = []
     while len(available_people) > 0:
         person = available_people.pop()
-        previous_matches = MatchRepository.instance().find_all_matches(person)
-        already_met_people = set(match.person1 if match.person1 != person else match.person2 for match in previous_matches)
+
+        already_met_people = _find_already_met_partners(person)
         candidates = set(available_people - already_met_people)
 
         if not candidates:
-            match = find_match_with_partner_not_in_history(matches, already_met_people)
+            match = _find_match_with_partner_not_in_history(matches, already_met_people, available_people)
             if not match:
                 continue
 
@@ -80,15 +82,33 @@ def generate_matches():
     return matches
 
 
-def find_match_with_partner_not_in_history(matches, already_met_people):
+def _find_already_met_partners(person):
+    previous_matches = MatchRepository.instance().find_all_matches(person)
+    return set(match.person1 if match.person1 != person else match.person2 for match in previous_matches)
+
+
+def _find_match_with_partner_not_in_history(matches, already_met_people, available_people):
+    def is_candidate(person):
+        """
+        A candidate is a person that is not in the history of already met people, but can match
+        with someone in the list of available people
+        """
+        if person in already_met_people:
+            return False
+
+        partners = _find_already_met_partners(person)
+        if len(available_people - partners) > 0:
+            return True
+
     for match in matches:
-        if match.person1 not in already_met_people or match.person2 not in already_met_people:
+        if is_candidate(match.person1) or is_candidate(match.person2):
+            # Check if one of the people in this match has
             return match
 
     return None
 
 
-def generate_matches_message(matches):
+def _generate_matches_message(matches):
     content = f"Hi buttoners, how's it going? These are the dates that have been arranged " \
               f"for this week (starting at {datetime.datetime.now().strftime('%Y-%m-%d')}) \n"
 
@@ -101,11 +121,12 @@ def generate_matches_message(matches):
 
 
 def execute():
-    #notifier = SlackNotifier()
+    # notifier = SlackNotifier()
     matches = generate_matches()
-    #notifier.notify(generate_matches_message(matches))
+    # notifier.notify(generate_matches_message(matches))
 
-    print(generate_matches_message(matches))
+    print(_generate_matches_message(matches))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Parse arguments for debugging purposes')

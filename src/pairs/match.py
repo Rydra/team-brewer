@@ -6,3 +6,6 @@ class Match:
 
     def is_present(self, person):
         return self.person1 == person or self.person2 == person
+
+    def __hash__(self):
+        return hash(frozenset({self.person1, self.person2}))
